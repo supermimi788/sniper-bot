@@ -34,11 +34,14 @@ def compute_context_1h(candles_1h: List[Candle]) -> Context1H:
         )
 
     last = candles_1h[-1]
+    recent = candles_1h[-3:] if len(candles_1h) >= 3 else candles_1h
     support_zone = latest_support_zone(candles_1h)
     resistance_zone = latest_resistance_zone(candles_1h)
 
-    sup_ok = support_zone is not None and support_reaction(last, support_zone)
-    res_ok = resistance_zone is not None and resistance_reaction(last, resistance_zone)
+    # Keep 1H context but make it less restrictive:
+    # context is valid if any of the last 3 candles shows reaction.
+    sup_ok = support_zone is not None and any(support_reaction(c, support_zone) for c in recent)
+    res_ok = resistance_zone is not None and any(resistance_reaction(c, resistance_zone) for c in recent)
 
     return Context1H(
         support_context=sup_ok,

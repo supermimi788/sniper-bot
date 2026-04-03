@@ -37,6 +37,12 @@ def main() -> None:
                     print("No trades opened. Most common skip reasons:")
                     for reason, count in sorted_reasons[:10]:
                         print(f"- {reason}: {count}")
+                if result.pair_skip_reasons:
+                    print("Per-pair skip reasons:")
+                    for pair in result.scanned_pairs:
+                        reason = result.pair_skip_reasons.get(pair)
+                        if reason is not None:
+                            print(f"- {pair}: {reason}")
         else:
             engine.run_forever_paper(poll_seconds=args.poll_seconds)
     else:

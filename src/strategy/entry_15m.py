@@ -66,11 +66,20 @@ def _bearish_rejection(rejection: Candle, resistance_zone: Zone) -> bool:
 
 
 def _bullish_confirmation(confirmation: Candle, rejection: Candle) -> bool:
-    return (confirmation.close > confirmation.open) and (confirmation.close > rejection.close)
+    # Relaxed confirmation: normal continuation is enough.
+    # Accept either:
+    # - bullish close above rejection close, or
+    # - higher low / higher high continuation versus rejection candle.
+    if (confirmation.close > confirmation.open) and (confirmation.close > rejection.close):
+        return True
+    return (confirmation.low >= rejection.low) and (confirmation.high >= rejection.high)
 
 
 def _bearish_confirmation(confirmation: Candle, rejection: Candle) -> bool:
-    return (confirmation.close < confirmation.open) and (confirmation.close < rejection.close)
+    # Relaxed confirmation: normal continuation is enough.
+    if (confirmation.close < confirmation.open) and (confirmation.close < rejection.close):
+        return True
+    return (confirmation.high <= rejection.high) and (confirmation.low <= rejection.low)
 
 
 def build_long_setup(candles_15m: List[Candle], bias: Bias4H, context: Context1H) -> Optional[EntrySetup]:

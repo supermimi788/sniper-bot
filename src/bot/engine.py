@@ -28,6 +28,7 @@ class EngineResult:
     skipped_trades: int = 0
     opened_trades: List[dict] = None  # list of {pair, side, entry, sl, tp, score}
     failure_reasons: Dict[str, int] = None  # counts per reason
+    pair_skip_reasons: Dict[str, str] = None  # pair -> first skip reason
 
 
 class BotEngine:
@@ -101,6 +102,7 @@ class BotEngine:
                 skipped_trades=len(self.settings.PAIRS),
                 opened_trades=[],
                 failure_reasons={"outside_session": len(self.settings.PAIRS)},
+                pair_skip_reasons={pair: "outside_session" for pair in self.settings.PAIRS},
             )
 
         # Keep paper-trading positions updated (if any exist).
@@ -132,6 +134,7 @@ class BotEngine:
                 skipped_trades=len(self.settings.PAIRS),
                 opened_trades=[],
                 failure_reasons={"stop_after_losses": len(self.settings.PAIRS)},
+                pair_skip_reasons={pair: "stop_after_losses" for pair in self.settings.PAIRS},
             )
 
         # Enforce risk limits (some will be upgraded later).
@@ -144,6 +147,7 @@ class BotEngine:
                 skipped_trades=len(self.settings.PAIRS),
                 opened_trades=[],
                 failure_reasons={"max_trades_per_day_reached": len(self.settings.PAIRS)},
+                pair_skip_reasons={pair: "max_trades_per_day_reached" for pair in self.settings.PAIRS},
             )
 
         if self.paper_account.open_trades_count() >= self.settings.MAX_OPEN_TRADES:
@@ -155,6 +159,7 @@ class BotEngine:
                 skipped_trades=len(self.settings.PAIRS),
                 opened_trades=[],
                 failure_reasons={"max_open_trades_reached": len(self.settings.PAIRS)},
+                pair_skip_reasons={pair: "max_open_trades_reached" for pair in self.settings.PAIRS},
             )
 
         entered = 0
@@ -163,6 +168,7 @@ class BotEngine:
         scanned_pairs: List[str] = []
         opened_trades: List[dict] = []
         failure_reasons: Dict[str, int] = {}
+        pair_skip_reasons: Dict[str, str] = {}
 
         for pair in self.settings.PAIRS:
             scanned_pairs.append(pair)
@@ -171,6 +177,7 @@ class BotEngine:
             if self.paper_account.has_open_trade(pair):
                 skipped += 1
                 failure_reasons["pair_has_open_trade"] = failure_reasons.get("pair_has_open_trade", 0) + 1
+                pair_skip_reasons[pair] = "pair_has_open_trade"
                 continue
 
             try:
@@ -178,12 +185,14 @@ class BotEngine:
             except Exception:
                 skipped += 1
                 failure_reasons["data_fetch_error"] = failure_reasons.get("data_fetch_error", 0) + 1
+                pair_skip_reasons[pair] = "data_fetch_error"
                 continue
 
             # NO TRADE IF: spread too big
             if snapshot.spread_pct > self.settings.MAX_SPREAD_PCT:
                 skipped += 1
                 failure_reasons["spread_too_big"] = failure_reasons.get("spread_too_big", 0) + 1
+                pair_skip_reasons[pair] = "spread_too_big"
                 continue
 
             # Pair cooldown (30 minutes) remains active only while the pair has a recent entry
@@ -192,6 +201,7 @@ class BotEngine:
             if pair_cd is not None and pair_cd.in_cooldown(now=now_utc, cooldown_minutes=self.settings.COOLDOWN_MINUTES):
                 skipped += 1
                 failure_reasons["pair_in_cooldown"] = failure_reasons.get("pair_in_cooldown", 0) + 1
+                pair_skip_reasons[pair] = "pair_in_cooldown"
                 continue
 
             signal, skip_reason = self.strategy.decide_debug(pair=pair, snapshot=snapshot)
@@ -199,6 +209,7 @@ class BotEngine:
                 skipped += 1
                 key = skip_reason or "strategy_no_signal"
                 failure_reasons[key] = failure_reasons.get(key, 0) + 1
+                pair_skip_reasons[pair] = key
                 continue
 
             # Risk-limit checks just before opening.
@@ -213,6 +224,7 @@ class BotEngine:
             if sl_dist > self.settings.STOP_LOSS_DISTANCE_PCT:
                 skipped += 1
                 failure_reasons["sl_distance_invalid"] = failure_reasons.get("sl_distance_invalid", 0) + 1
+                pair_skip_reasons[pair] = "sl_distance_invalid"
                 continue
 
             final_tp = PaperAccount.tp_price_from_r(
@@ -253,6 +265,7 @@ class BotEngine:
             skipped_trades=skipped,
             opened_trades=opened_trades,
             failure_reasons=failure_reasons,
+            pair_skip_reasons=pair_skip_reasons,
         )
 
     def run_forever_paper(self, poll_seconds: int = 60) -> None:

@@ -48,12 +48,19 @@ class MarketData:
         transient connectivity issues to OKX don't immediately kill the scan.
         """
         last_error: Exception | None = None
-        for attempt in range(1, 4):  # 3 attempts total
+        # 2 attempts total keeps the bot responsive while still being resilient.
+        # Fetching is sequential (no concurrency) for easier debugging under light load.
+        max_attempts = 2
+        for attempt in range(1, max_attempts + 1):
             try:
                 spread_pct = self.get_spread_pct(pair)
+                print(f"[market_data] {pair} spread fetched successfully: {spread_pct:.6f}")
                 candles_4h = self.get_candles(pair, timeframe="4h", limit=self.bias_4h_lookback)
+                print(f"[market_data] {pair} candles fetched successfully: 4h={len(candles_4h)}")
                 candles_1h = self.get_candles(pair, timeframe="1h", limit=self.context_1h_lookback)
+                print(f"[market_data] {pair} candles fetched successfully: 1h={len(candles_1h)}")
                 candles_15m = self.get_candles(pair, timeframe="15m", limit=self.entry_15m_lookback)
+                print(f"[market_data] {pair} candles fetched successfully: 15m={len(candles_15m)}")
 
                 return PairSnapshot(
                     spread_pct=spread_pct,
@@ -63,8 +70,12 @@ class MarketData:
                 )
             except Exception as e:
                 last_error = e
-                print(f"[market_data] error fetching snapshot for {pair} (attempt {attempt}/3): {e}")
+                print(
+                    f"[market_data] error fetching snapshot for {pair} "
+                    f"(attempt {attempt}/{max_attempts}) "
+                    f"type={type(e).__name__} repr={e!r}"
+                )
 
         # If we get here, all attempts failed.
-        raise RuntimeError(f"Failed to fetch market snapshot for {pair} after 3 attempts") from last_error
+        raise RuntimeError(f"Failed to fetch market snapshot for {pair} after {max_attempts} attempts") from last_error
 

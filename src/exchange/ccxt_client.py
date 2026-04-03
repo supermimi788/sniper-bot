@@ -49,7 +49,7 @@ class OKXClient:
                 "enableRateLimit": True,
                 # Increase HTTP timeout (milliseconds) to make transient
                 # latency spikes less likely to cause failures.
-                "timeout": 20000,  # 20 seconds
+                "timeout": 30000,  # 30 seconds (temporary connectivity test)
                 # OKX swap/USDT perpetual is commonly the defaultType="swap"
                 "options": {"defaultType": "swap"},
             }

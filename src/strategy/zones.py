@@ -57,14 +57,16 @@ def latest_resistance_zone(candles: List[Candle], left: int = 3, right: int = 3)
 
 def touch_support_zone(candle: Candle, zone: Zone) -> bool:
     assert zone.kind == "support"
-    # Touch means the candle's price range intersects the zone.
-    return candle.low <= zone.upper and candle.high >= zone.lower
+    # Relaxed touch: allow a small tolerance around the zone boundaries.
+    tol = zone.center * settings.ZONE_TOUCH_TOLERANCE_PCT
+    return candle.low <= (zone.upper + tol) and candle.high >= (zone.lower - tol)
 
 
 def touch_resistance_zone(candle: Candle, zone: Zone) -> bool:
     assert zone.kind == "resistance"
-    # Touch means the candle's price range intersects the zone.
-    return candle.high >= zone.lower and candle.low <= zone.upper
+    # Relaxed touch: allow a small tolerance around the zone boundaries.
+    tol = zone.center * settings.ZONE_TOUCH_TOLERANCE_PCT
+    return candle.high >= (zone.lower - tol) and candle.low <= (zone.upper + tol)
 
 
 def support_reaction(candle: Candle, zone: Zone) -> bool:

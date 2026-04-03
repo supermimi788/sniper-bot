@@ -105,9 +105,12 @@ class Settings:
     ZONE_WIDTH_MAX_PCT: float = 0.0035  # 0.35%
 
     # Sweep penetration rule (percentage over prior high/low)
-    SWEEP_PEN_MIN_PCT: float = 0.0003  # 0.03%
-    SWEEP_PEN_MAX_PCT: float = 0.0020  # 0.20%
-    SWEEP_WICK_TO_BODY_MIN: float = 1.3  # wick/body >= 1.3
+    SWEEP_PEN_MIN_PCT: float = 0.0002  # 0.02%
+    SWEEP_PEN_MAX_PCT: float = 0.0035  # 0.35%
+    SWEEP_WICK_TO_BODY_MIN: float = 1.1  # wick/body >= 1.1
+
+    # Zone touch tolerance around zone boundaries (to avoid overly strict touches).
+    ZONE_TOUCH_TOLERANCE_PCT: float = 0.0005  # 0.05%
 
     # ----------------------------
     # Adaptive trade management
@@ -150,7 +153,7 @@ class Settings:
     SCORE_REJECTION: int = 1
     SCORE_CONFIRMATION: int = 2
     SCORE_RR: int = 1
-    SCORE_MIN_TO_ENTER: int = 8
+    SCORE_MIN_TO_ENTER: int = 6
 
     # ----------------------------
     # Risk limits / session controls
@@ -174,27 +177,9 @@ def build_settings() -> Settings:
     # Defaults from Settings, with optional env overrides for secrets/settings.
     s = Settings()
 
+    # TEMP connectivity test universe (single pair):
     pairs = [
         "BTCUSDT",
-        "ETHUSDT",
-        "BNBUSDT",
-        "SOLUSDT",
-        "XRPUSDT",
-        "ADAUSDT",
-        "DOGEUSDT",
-        "TRXUSDT",
-        "TONUSDT",
-        "AVAXUSDT",
-        "LINKUSDT",
-        "DOTUSDT",
-        "LTCUSDT",
-        "BCHUSDT",
-        "UNIUSDT",
-        "XLMUSDT",
-        "SUIUSDT",
-        "APTUSDT",
-        "SHIBUSDT",
-        "NEARUSDT",
     ]
 
     session_windows = [
