@@ -71,6 +71,10 @@ class Settings:
     OKX_API_SECRET: str = ""
     OKX_API_PASSPHRASE: str = ""
 
+    # Telegram notifications (optional)
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_CHAT_ID: str = ""
+
     # ----------------------------
     # Risk + position sizing model
     # ----------------------------
@@ -168,6 +172,10 @@ class Settings:
     SESSION_WINDOWS_WIB: List[Tuple[str, str]] = None  # type: ignore[assignment]
     SESSION_TIMEZONE: str = "WIB"
 
+    # Logging outputs
+    LOG_DIR: str = "logs"
+    TRADE_LOG_CSV: str = "trade_history.csv"
+
 
 def build_settings() -> Settings:
     # Load .env first so overrides are available.
@@ -214,6 +222,8 @@ def build_settings() -> Settings:
     object.__setattr__(s, "OKX_API_KEY", os.environ.get("OKX_API_KEY", ""))
     object.__setattr__(s, "OKX_API_SECRET", os.environ.get("OKX_API_SECRET", ""))
     object.__setattr__(s, "OKX_API_PASSPHRASE", os.environ.get("OKX_API_PASSPHRASE", ""))
+    object.__setattr__(s, "TELEGRAM_BOT_TOKEN", os.environ.get("TELEGRAM_BOT_TOKEN", ""))
+    object.__setattr__(s, "TELEGRAM_CHAT_ID", os.environ.get("TELEGRAM_CHAT_ID", ""))
 
     return s
 

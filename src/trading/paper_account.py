@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from config import settings
@@ -56,6 +57,23 @@ class PaperTrade:
     qty_remaining: float = 0.0
 
 
+@dataclass
+class TradeEvent:
+    timestamp: str
+    pair: str
+    side: str
+    event_type: str
+    entry_price: float
+    exit_price: float
+    sl_price: float
+    tp_price: float
+    qty: float
+    pnl_usdt: float
+    pnl_r_multiple: float
+    reason: str
+    trade_id: int
+
+
 class PaperAccount:
     """
     A simple paper-trading simulator for futures that supports:
@@ -72,6 +90,46 @@ class PaperAccount:
         self.trades: Dict[int, PaperTrade] = {}
         self.open_trade_ids: List[int] = []
         self._closed_trade_events: List[PaperTrade] = []
+        self._trade_events: List[TradeEvent] = []
+
+    @staticmethod
+    def _utc_now_iso() -> str:
+        return datetime.now(timezone.utc).isoformat()
+
+    @staticmethod
+    def _r_value_usdt(entry_price: float, qty: float) -> float:
+        # 1R in USDT for the given position size.
+        return entry_price * qty * settings.STOP_LOSS_DISTANCE_PCT
+
+    def _emit_event(
+        self,
+        trade: PaperTrade,
+        event_type: str,
+        qty: float,
+        pnl_usdt: float,
+        exit_price: Optional[float],
+        tp_price: Optional[float],
+        reason: str,
+    ) -> None:
+        r_value = self._r_value_usdt(trade.entry_price, qty=qty) if qty > 0 else 0.0
+        pnl_r = (pnl_usdt / r_value) if r_value > 0 else 0.0
+        self._trade_events.append(
+            TradeEvent(
+                timestamp=self._utc_now_iso(),
+                pair=trade.pair,
+                side=trade.side,
+                event_type=event_type,
+                entry_price=trade.entry_price,
+                exit_price=exit_price if exit_price is not None else 0.0,
+                sl_price=trade.sl_price,
+                tp_price=tp_price if tp_price is not None else 0.0,
+                qty=qty,
+                pnl_usdt=pnl_usdt,
+                pnl_r_multiple=pnl_r,
+                reason=reason,
+                trade_id=trade.trade_id,
+            )
+        )
 
     @staticmethod
     def sl_price_from_entry(entry_price: float, side: str) -> float:
@@ -123,6 +181,16 @@ class PaperAccount:
 
         self.trades[trade_id] = trade
         self.open_trade_ids.append(trade_id)
+
+        self._emit_event(
+            trade=trade,
+            event_type="entry_opened",
+            qty=trade.qty,
+            pnl_usdt=0.0,
+            exit_price=None,
+            tp_price=trade.final_tp_price,
+            reason="entry_opened",
+        )
         return trade
 
     def set_sl_move(self, trade_id: int, new_sl_price: float) -> None:
@@ -159,6 +227,15 @@ class PaperAccount:
         else:
             # BE means SL at entry.
             self.set_sl_move(trade_id=trade.trade_id, new_sl_price=trade.entry_price)
+            self._emit_event(
+                trade=trade,
+                event_type="sl_moved_to_be",
+                qty=trade.qty_remaining,
+                pnl_usdt=0.0,
+                exit_price=None,
+                tp_price=trade.partial_tp_price,
+                reason="sl_moved_to_be",
+            )
 
     @staticmethod
     def _r_mult_from_favorable_move(entry_price: float, side: str, favorable_high: float, favorable_low: float) -> float:
@@ -244,14 +321,24 @@ class PaperAccount:
             final_touched = candle.high >= trade.final_tp_price
 
             if sl_touched:
-                self._close_trade(trade, exit_price=trade.sl_price, qty_to_close=trade.qty_remaining)
+                self._close_trade(
+                    trade,
+                    exit_price=trade.sl_price,
+                    qty_to_close=trade.qty_remaining,
+                    reason="sl_hit",
+                )
                 return
 
             if partial_touched:
                 self._take_partial(trade)
 
             if final_touched and not trade.closed:
-                self._close_trade(trade, exit_price=trade.final_tp_price, qty_to_close=trade.qty_remaining)
+                self._close_trade(
+                    trade,
+                    exit_price=trade.final_tp_price,
+                    qty_to_close=trade.qty_remaining,
+                    reason="final_tp_hit",
+                )
                 return
 
         else:
@@ -264,14 +351,24 @@ class PaperAccount:
             final_touched = candle.low <= trade.final_tp_price
 
             if sl_touched:
-                self._close_trade(trade, exit_price=trade.sl_price, qty_to_close=trade.qty_remaining)
+                self._close_trade(
+                    trade,
+                    exit_price=trade.sl_price,
+                    qty_to_close=trade.qty_remaining,
+                    reason="sl_hit",
+                )
                 return
 
             if partial_touched:
                 self._take_partial(trade)
 
             if final_touched and not trade.closed:
-                self._close_trade(trade, exit_price=trade.final_tp_price, qty_to_close=trade.qty_remaining)
+                self._close_trade(
+                    trade,
+                    exit_price=trade.final_tp_price,
+                    qty_to_close=trade.qty_remaining,
+                    reason="final_tp_hit",
+                )
                 return
 
     def _take_partial(self, trade: PaperTrade) -> None:
@@ -279,20 +376,54 @@ class PaperAccount:
         if trade.partial_tp_price is None:
             return
         qty_to_close = trade.qty_remaining * settings.PARTIAL_EXIT_FRACTION
-        trade.realized_pnl_usdt += self._pnl_usdt(trade.side, trade.entry_price, trade.partial_tp_price, qty_to_close)
+        pnl = self._pnl_usdt(trade.side, trade.entry_price, trade.partial_tp_price, qty_to_close)
+        trade.realized_pnl_usdt += pnl
         trade.qty_remaining -= qty_to_close
         trade.partial_taken = True
+        self._emit_event(
+            trade=trade,
+            event_type="partial_exit",
+            qty=qty_to_close,
+            pnl_usdt=pnl,
+            exit_price=trade.partial_tp_price,
+            tp_price=trade.partial_tp_price,
+            reason="partial_tp_hit",
+        )
 
-    def _close_trade(self, trade: PaperTrade, exit_price: float, qty_to_close: float) -> None:
+    def _close_trade(self, trade: PaperTrade, exit_price: float, qty_to_close: float, reason: str) -> None:
         if qty_to_close <= 0:
             trade.closed = True
             trade.close_price = exit_price
             return
 
-        trade.realized_pnl_usdt += self._pnl_usdt(trade.side, trade.entry_price, exit_price, qty_to_close)
+        pnl = self._pnl_usdt(trade.side, trade.entry_price, exit_price, qty_to_close)
+        trade.realized_pnl_usdt += pnl
         trade.qty_remaining -= qty_to_close
         trade.closed = True
         trade.close_price = exit_price
+
+        hit_event = reason
+        if reason == "sl_hit" and abs(exit_price - trade.entry_price) <= (trade.entry_price * 1e-8):
+            hit_event = "break_even_exit"
+
+        self._emit_event(
+            trade=trade,
+            event_type=hit_event,
+            qty=qty_to_close,
+            pnl_usdt=pnl,
+            exit_price=exit_price,
+            tp_price=trade.final_tp_price if reason == "final_tp_hit" else trade.sl_price,
+            reason=reason,
+        )
+        self._emit_event(
+            trade=trade,
+            event_type="trade_closed",
+            qty=trade.qty,
+            pnl_usdt=trade.realized_pnl_usdt,
+            exit_price=exit_price,
+            tp_price=trade.final_tp_price,
+            reason=hit_event,
+        )
 
         # Store close event for engine to update daily loss counters.
         self._closed_trade_events.append(trade)
@@ -307,6 +438,11 @@ class PaperAccount:
     def consume_closed_trades(self) -> List[PaperTrade]:
         events = self._closed_trade_events
         self._closed_trade_events = []
+        return events
+
+    def consume_trade_events(self) -> List[TradeEvent]:
+        events = self._trade_events
+        self._trade_events = []
         return events
 
     def has_open_trade(self, pair: str) -> bool:

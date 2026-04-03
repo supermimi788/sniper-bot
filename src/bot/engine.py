@@ -8,8 +8,11 @@ from typing import Dict, List, Optional
 from config import settings
 from src.data.market_data import MarketData
 from src.exchange.ccxt_client import OKXClient
+from src.logging.performance_tracker import PerformanceTracker
+from src.logging.telegram_alerts import TelegramAlerts
+from src.logging.trade_logger import TradeLogger
 from src.strategy.sniper_strategy import SniperStrategy
-from src.trading.paper_account import PaperAccount
+from src.trading.paper_account import PaperAccount, TradeEvent
 from .session import WIB_TZ, is_within_session_windows_wib
 from .state import BotState
 
@@ -61,6 +64,68 @@ class BotEngine:
         self.market_data = MarketData(self.exchange)
         self.paper_account = PaperAccount()
         self.strategy = SniperStrategy()
+        self.trade_logger = TradeLogger()
+        self.performance = PerformanceTracker()
+        self.telegram = TelegramAlerts()
+
+        print("[bot] started")
+        self.telegram.send("Bot started (paper mode).")
+
+    def _notify_trade_event(self, event: TradeEvent) -> None:
+        # Concise Telegram messages by event type.
+        if event.event_type == "entry_opened":
+            self.telegram.send(
+                f"ENTRY {event.pair} {event.side} id={event.trade_id} "
+                f"entry={event.entry_price:.8f} sl={event.sl_price:.8f} tp={event.tp_price:.8f}"
+            )
+        elif event.event_type == "partial_exit":
+            self.telegram.send(
+                f"PARTIAL TP {event.pair} id={event.trade_id} qty={event.qty:.8f} "
+                f"pnl={event.pnl_usdt:.4f} ({event.pnl_r_multiple:.2f}R)"
+            )
+        elif event.event_type == "sl_moved_to_be":
+            self.telegram.send(f"SL moved to BE {event.pair} id={event.trade_id}")
+        elif event.event_type == "final_tp_hit":
+            self.telegram.send(
+                f"FINAL TP hit {event.pair} id={event.trade_id} pnl={event.pnl_usdt:.4f} ({event.pnl_r_multiple:.2f}R)"
+            )
+        elif event.event_type == "sl_hit":
+            self.telegram.send(
+                f"SL hit {event.pair} id={event.trade_id} pnl={event.pnl_usdt:.4f} ({event.pnl_r_multiple:.2f}R)"
+            )
+        elif event.event_type == "break_even_exit":
+            self.telegram.send(f"Break-even exit {event.pair} id={event.trade_id}")
+        elif event.event_type == "trade_closed":
+            self.telegram.send(
+                f"Trade closed {event.pair} id={event.trade_id} total_pnl={event.pnl_usdt:.4f} ({event.pnl_r_multiple:.2f}R)"
+            )
+
+    def _process_trade_events(self) -> None:
+        events = self.paper_account.consume_trade_events()
+        if not events:
+            return
+
+        for event in events:
+            self.trade_logger.log_event(event)
+            self._notify_trade_event(event)
+
+            if event.event_type == "trade_closed":
+                # Update performance and risk counters on close.
+                self.performance.on_trade_closed(event)
+                if event.pnl_usdt < 0:
+                    self.state.losses_today += 1
+                self.state.clear_pair_cooldown(pair=event.pair)
+                stats = self.performance.snapshot(open_trades_count=self.paper_account.open_trades_count())
+                stats_line = PerformanceTracker.format_stats(stats)
+                print(f"[stats][trade_closed] {stats_line}")
+                self.telegram.send(f"Stats (trade closed): {stats_line}")
+
+    def _finalize_cycle(self, result: EngineResult) -> EngineResult:
+        stats = self.performance.snapshot(open_trades_count=self.paper_account.open_trades_count())
+        stats_line = PerformanceTracker.format_stats(stats)
+        print(f"[stats][cycle] {stats_line}")
+        self.telegram.send(f"Cycle summary: {stats_line}")
+        return result
 
     def _in_session(self, now_utc: datetime) -> bool:
         # 24/7 mode: session filtering is disabled.
@@ -104,16 +169,12 @@ class BotEngine:
                 # Network hiccups shouldn't crash the bot.
                 continue
 
-        # Update daily loss counters from any newly closed paper trades.
-        # Also apply the updated "pair trading rule": no cooldown after closing.
-        for closed in self.paper_account.consume_closed_trades():
-            if closed.realized_pnl_usdt < 0:
-                self.state.losses_today += 1
-            self.state.clear_pair_cooldown(pair=closed.pair)
+        # Process trade events emitted by paper account updates.
+        self._process_trade_events()
 
         # Stop if too many losses today.
         if self.state.losses_today >= self.settings.MAX_LOSSES_BEFORE_STOP:
-            return EngineResult(
+            return self._finalize_cycle(EngineResult(
                 in_session=True,
                 scanned_pairs=[],
                 signals_generated=0,
@@ -122,11 +183,11 @@ class BotEngine:
                 opened_trades=[],
                 failure_reasons={"stop_after_losses": len(self.settings.PAIRS)},
                 pair_skip_reasons={pair: "stop_after_losses" for pair in self.settings.PAIRS},
-            )
+            ))
 
         # Enforce risk limits (some will be upgraded later).
         if self.state.trades_today >= self.settings.MAX_TRADES_PER_DAY:
-            return EngineResult(
+            return self._finalize_cycle(EngineResult(
                 in_session=True,
                 scanned_pairs=[],
                 signals_generated=0,
@@ -135,10 +196,10 @@ class BotEngine:
                 opened_trades=[],
                 failure_reasons={"max_trades_per_day_reached": len(self.settings.PAIRS)},
                 pair_skip_reasons={pair: "max_trades_per_day_reached" for pair in self.settings.PAIRS},
-            )
+            ))
 
         if self.paper_account.open_trades_count() >= self.settings.MAX_OPEN_TRADES:
-            return EngineResult(
+            return self._finalize_cycle(EngineResult(
                 in_session=True,
                 scanned_pairs=[],
                 signals_generated=0,
@@ -147,7 +208,7 @@ class BotEngine:
                 opened_trades=[],
                 failure_reasons={"max_open_trades_reached": len(self.settings.PAIRS)},
                 pair_skip_reasons={pair: "max_open_trades_reached" for pair in self.settings.PAIRS},
-            )
+            ))
 
         entered = 0
         skipped = 0
@@ -244,7 +305,10 @@ class BotEngine:
                 }
             )
 
-        return EngineResult(
+        # Process events generated by newly opened trades in this cycle.
+        self._process_trade_events()
+
+        result = EngineResult(
             in_session=True,
             scanned_pairs=scanned_pairs,
             signals_generated=signals_generated,
@@ -254,16 +318,22 @@ class BotEngine:
             failure_reasons=failure_reasons,
             pair_skip_reasons=pair_skip_reasons,
         )
+        return self._finalize_cycle(result)
 
     def run_forever_paper(self, poll_seconds: int = 60) -> None:
         """
         Starts the paper-trading scan loop (strategy/execution still TODO).
         """
         while True:
-            result = self.run_once()
-            print(
-                f"[bot] entered={result.entered_trades} skipped={result.skipped_trades} "
-                f"trades_today={self.state.trades_today} open={self.paper_account.open_trades_count()}"
-            )
-            time_module.sleep(poll_seconds)
+            try:
+                result = self.run_once()
+                print(
+                    f"[bot] entered={result.entered_trades} skipped={result.skipped_trades} "
+                    f"trades_today={self.state.trades_today} open={self.paper_account.open_trades_count()}"
+                )
+                time_module.sleep(poll_seconds)
+            except Exception as e:
+                print(f"[bot] error: {type(e).__name__}: {e}")
+                self.telegram.send(f"Bot error: {type(e).__name__}: {e}")
+                time_module.sleep(poll_seconds)
 
