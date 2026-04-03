@@ -177,9 +177,27 @@ def build_settings() -> Settings:
     # Defaults from Settings, with optional env overrides for secrets/settings.
     s = Settings()
 
-    # TEMP connectivity test universe (single pair):
     pairs = [
         "BTCUSDT",
+        "ETHUSDT",
+        "BNBUSDT",
+        "SOLUSDT",
+        "XRPUSDT",
+        "ADAUSDT",
+        "DOGEUSDT",
+        "TRXUSDT",
+        "TONUSDT",
+        "AVAXUSDT",
+        "LINKUSDT",
+        "DOTUSDT",
+        "LTCUSDT",
+        "BCHUSDT",
+        "UNIUSDT",
+        "XLMUSDT",
+        "SUIUSDT",
+        "APTUSDT",
+        "SHIBUSDT",
+        "NEARUSDT",
     ]
 
     session_windows = [

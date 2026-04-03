@@ -63,10 +63,8 @@ class BotEngine:
         self.strategy = SniperStrategy()
 
     def _in_session(self, now_utc: datetime) -> bool:
-        return is_within_session_windows_wib(
-            now=now_utc,
-            windows=self.settings.SESSION_WINDOWS_WIB,
-        )
+        # 24/7 mode: session filtering is disabled.
+        return True
 
     def _reset_daily_if_needed(self, now_utc: datetime) -> None:
         # Spec uses WIB for sessions; we reset based on WIB day.
@@ -92,18 +90,7 @@ class BotEngine:
 
         self._reset_daily_if_needed(now_utc)
 
-        in_session = self._in_session(now_utc)
-        if not in_session:
-            return EngineResult(
-                in_session=False,
-                scanned_pairs=[],
-                signals_generated=0,
-                entered_trades=0,
-                skipped_trades=len(self.settings.PAIRS),
-                opened_trades=[],
-                failure_reasons={"outside_session": len(self.settings.PAIRS)},
-                pair_skip_reasons={pair: "outside_session" for pair in self.settings.PAIRS},
-            )
+        in_session = True
 
         # Keep paper-trading positions updated (if any exist).
         for trade_id in list(self.paper_account.open_trade_ids):
