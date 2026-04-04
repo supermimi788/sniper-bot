@@ -125,7 +125,7 @@ class BotEngine:
         stats_line = PerformanceTracker.format_stats(stats)
         print(f"[stats][cycle] {stats_line}")
         if self.settings.TELEGRAM_SEND_CYCLE_SUMMARY:
-        self.telegram.send(f"Cycle summary: {stats_line}")
+            self.telegram.send(f"Cycle summary: {stats_line}")
         return result
 
     def _in_session(self, now_utc: datetime) -> bool:
