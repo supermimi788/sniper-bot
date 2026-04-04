@@ -112,9 +112,9 @@ class Settings:
     ZONE_WIDTH_MAX_PCT: float = 0.003  # 0.3%
 
     # Sweep penetration rule (percentage over prior high/low)
-    SWEEP_PEN_MIN_PCT: float = 0.0001  # 0.01%
-    SWEEP_PEN_MAX_PCT: float = 0.002  # 0.2%
-    SWEEP_WICK_TO_BODY_MIN: float = 1.1  # wick/body >= 1.1
+    SWEEP_PEN_MIN_PCT: float = 0.00005  # 0.005%
+    SWEEP_PEN_MAX_PCT: float = 0.003  # 0.3%
+    SWEEP_WICK_TO_BODY_MIN: float = 0.8  # wick/body >= 0.8
 
     # Zone touch tolerance around zone boundaries (to avoid overly strict touches).
     ZONE_TOUCH_TOLERANCE_PCT: float = 0.001  # 0.1%   
