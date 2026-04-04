@@ -96,9 +96,10 @@ class BotEngine:
         elif event.event_type == "break_even_exit":
             self.telegram.send(f"Break-even exit {event.pair} id={event.trade_id}")
         elif event.event_type == "trade_closed":
-            self.telegram.send(
-                f"Trade closed {event.pair} id={event.trade_id} total_pnl={event.pnl_usdt:.4f} ({event.pnl_r_multiple:.2f}R)"
-            )
+            total_pnl = event.trade.realized_pnl_usdt
+            result = "WIN" if total_pnl > 0 else "LOSS" if total_pnl < 0 else "BE"
+            self.telegram.send(f"{result} {event.pair} id={event.trade_id} pnl={total_pnl:.4f}")
+       
 
     def _process_trade_events(self) -> None:
         events = self.paper_account.consume_trade_events()
