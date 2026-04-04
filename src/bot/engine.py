@@ -124,6 +124,7 @@ class BotEngine:
         stats = self.performance.snapshot(open_trades_count=self.paper_account.open_trades_count())
         stats_line = PerformanceTracker.format_stats(stats)
         print(f"[stats][cycle] {stats_line}")
+        if self.settings.TELEGRAM_SEND_CYCLE_SUMMARY:
         self.telegram.send(f"Cycle summary: {stats_line}")
         return result
 

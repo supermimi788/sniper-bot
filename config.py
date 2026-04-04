@@ -74,18 +74,21 @@ class Settings:
     # Telegram notifications (optional)
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
+    TELEGRAM_SEND_CYCLE_SUMMARY: bool = False
+    TELEGRAM_SEND_SKIP_SUMMARY: bool = False
+    TELEGRAM_SEND_ONLY_EVENTS: bool = True
 
     # ----------------------------
     # Risk + position sizing model
     # ----------------------------
     MARGIN_MODE: str = "isolated"
     MARGIN_PER_TRADE_USDT: float = 3.0
-    LEVERAGE: int = 15
-    NOTIONAL_PER_TRADE_USDT: float = 45.0
+    LEVERAGE: int = 25
+    NOTIONAL_PER_TRADE_USDT: float = 75.0
 
-    STOP_LOSS_DISTANCE_PCT: float = 0.05  # 5%
-    FINAL_TP_R_MULTIPLIER: float = 2.5  # 2.5R
-    FINAL_TP_DISTANCE_PCT: float = 0.125  # 12.5% (given 5% stop)
+    STOP_LOSS_DISTANCE_PCT: float = 0.03  # 3%
+    FINAL_TP_R_MULTIPLIER: float = 2  # 2R
+    FINAL_TP_DISTANCE_PCT: float = None
 
     # ----------------------------
     # Universe
@@ -105,16 +108,16 @@ class Settings:
     EMA_PERIOD: int = 50
 
     # Zones (width as percentage of price)
-    ZONE_WIDTH_MIN_PCT: float = 0.0015  # 0.15%
-    ZONE_WIDTH_MAX_PCT: float = 0.0035  # 0.35%
+    ZONE_WIDTH_MIN_PCT: float = 0.001  # 0.1%
+    ZONE_WIDTH_MAX_PCT: float = 0.003  # 0.3%
 
     # Sweep penetration rule (percentage over prior high/low)
-    SWEEP_PEN_MIN_PCT: float = 0.0002  # 0.02%
-    SWEEP_PEN_MAX_PCT: float = 0.0035  # 0.35%
+    SWEEP_PEN_MIN_PCT: float = 0.0001  # 0.01%
+    SWEEP_PEN_MAX_PCT: float = 0.002  # 0.2%
     SWEEP_WICK_TO_BODY_MIN: float = 1.1  # wick/body >= 1.1
 
     # Zone touch tolerance around zone boundaries (to avoid overly strict touches).
-    ZONE_TOUCH_TOLERANCE_PCT: float = 0.0005  # 0.05%
+    ZONE_TOUCH_TOLERANCE_PCT: float = 0.001  # 0.1%   
 
     # ----------------------------
     # Adaptive trade management
@@ -127,19 +130,19 @@ class Settings:
     REMAINDER_EXIT_FRACTION: float = 0.60  # remaining 60% to final TP
 
     # Weak/Medium/Strong:
-    # - Weak: 40% at 1R, SL to BE, hold 60% to 2.5R
-    # - Medium: 40% at 1.2R, SL to BE, hold 60% to 2.5R
-    # - Strong: 40% at 1.5R, SL to +0.5R, hold 60% to 2.5R
+    # - Weak: 40% at 1R, SL to BE, hold 60% to 2R
+    # - Medium: 40% at 1.2R, SL to BE, hold 60% to 2R
+    # - Strong: 40% at 1.5R, SL to +0.5R, hold 60% to 2R
     WEAK_PARTIAL_R: float = 1.0
     MEDIUM_PARTIAL_R: float = 1.2
     STRONG_PARTIAL_R: float = 1.5
 
     SL_MOVE_WEAK_TO_R: float = 0.0  # BE = 0R
     SL_MOVE_MEDIUM_TO_R: float = 0.0  # BE = 0R
-    SL_MOVE_STRONG_TO_R: float = 0.5
+    SL_MOVE_STRONG_TO_R: float = 0.3
 
-    # Final target is always 2.5R
-    FINAL_TP_R: float = 2.5
+    # Final target is always 2R
+    FINAL_TP_R: float = 2
 
     # ----------------------------
     # Spread + "no trade" filters
