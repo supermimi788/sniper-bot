@@ -108,23 +108,23 @@ class Settings:
     EMA_PERIOD: int = 50
 
     # Zones (width as percentage of price)
-    ZONE_WIDTH_MIN_PCT: float = 0.001  # 0.1%
-    ZONE_WIDTH_MAX_PCT: float = 0.003  # 0.3%
+    ZONE_WIDTH_MIN_PCT: float = 0.0008  # 0.08%
+    ZONE_WIDTH_MAX_PCT: float = 0.004  # 0.4%
 
     # Sweep penetration rule (percentage over prior high/low)
     SWEEP_PEN_MIN_PCT: float = 0.00005  # 0.005%
-    SWEEP_PEN_MAX_PCT: float = 0.003  # 0.3%
-    SWEEP_WICK_TO_BODY_MIN: float = 0.8  # wick/body >= 0.8
+    SWEEP_PEN_MAX_PCT: float = 0.004  # 0.4%
+    SWEEP_WICK_TO_BODY_MIN: float = 0.7  # wick/body >= 0.7
 
     # Zone touch tolerance around zone boundaries (to avoid overly strict touches).
-    ZONE_TOUCH_TOLERANCE_PCT: float = 0.001  # 0.1%   
+    ZONE_TOUCH_TOLERANCE_PCT: float = 0.0012  # 0.1%   
 
     # ----------------------------
     # Adaptive trade management
     # ----------------------------
     # Momentum classification uses the first 1-2 candles after entry.
     MOMENTUM_CHECK_CANDLES_MIN: int = 1
-    MOMENTUM_CHECK_CANDLES_MAX: int = 2
+    MOMENTUM_CHECK_CANDLES_MAX: int = 3
 
     PARTIAL_EXIT_FRACTION: float = 0.40  # 40% partial TP
     REMAINDER_EXIT_FRACTION: float = 0.60  # remaining 60% to final TP
@@ -157,9 +157,9 @@ class Settings:
     SCORE_1H_CONTEXT: int = 2
     SCORE_ZONE: int = 2
     SCORE_SWEEP: int = 2
-    SCORE_REJECTION: int = 1
+    SCORE_REJECTION: int = 2
     SCORE_CONFIRMATION: int = 2
-    SCORE_RR: int = 1
+    SCORE_RR: int = 2
     SCORE_MIN_TO_ENTER: int = 6
 
     # ----------------------------
