@@ -109,15 +109,15 @@ class Settings:
 
     # Zones (width as percentage of price)
     ZONE_WIDTH_MIN_PCT: float = 0.0008  # 0.08%
-    ZONE_WIDTH_MAX_PCT: float = 0.004  # 0.4%
+    ZONE_WIDTH_MAX_PCT: float = 0.005  # 0.5%
 
     # Sweep penetration rule (percentage over prior high/low)
     SWEEP_PEN_MIN_PCT: float = 0.00005  # 0.005%
-    SWEEP_PEN_MAX_PCT: float = 0.004  # 0.4%
-    SWEEP_WICK_TO_BODY_MIN: float = 0.7  # wick/body >= 0.7
+    SWEEP_PEN_MAX_PCT: float = 0.005  # 0.5%
+    SWEEP_WICK_TO_BODY_MIN: float = 0.6  # wick/body >= 0.6
 
     # Zone touch tolerance around zone boundaries (to avoid overly strict touches).
-    ZONE_TOUCH_TOLERANCE_PCT: float = 0.0012  # 0.1%   
+    ZONE_TOUCH_TOLERANCE_PCT: float = 0.0015  # 0.15%   
 
     # ----------------------------
     # Adaptive trade management
@@ -148,7 +148,7 @@ class Settings:
     # Spread + "no trade" filters
     # ----------------------------
     # Your request: max spread 0.1% (percentage)
-    MAX_SPREAD_PCT: float = 0.001
+    MAX_SPREAD_PCT = 0.002
 
     # ----------------------------
     # Scoring (must match spec)
@@ -158,9 +158,9 @@ class Settings:
     SCORE_ZONE: int = 2
     SCORE_SWEEP: int = 2
     SCORE_REJECTION: int = 2
-    SCORE_CONFIRMATION: int = 2
+    SCORE_CONFIRMATION: int = 1
     SCORE_RR: int = 2
-    SCORE_MIN_TO_ENTER: int = 6
+    SCORE_MIN_TO_ENTER: int = 4
 
     # ----------------------------
     # Risk limits / session controls
