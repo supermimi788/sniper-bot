@@ -129,17 +129,17 @@ class Settings:
     PARTIAL_EXIT_FRACTION: float = 0.40  # 40% partial TP
     REMAINDER_EXIT_FRACTION: float = 0.60  # remaining 60% to final TP
 
-    # Weak/Medium/Strong:
-    # - Weak: 40% at 1R, SL to BE, hold 60% to 2R
-    # - Medium: 40% at 1.2R, SL to BE, hold 60% to 2R
-    # - Strong: 40% at 1.5R, SL to +0.5R, hold 60% to 2R
+    # Trade management (locked):
+    # - 40% partial only at 1R
+    # - move SL to BE only after that partial is hit
+    # - hold remaining 60% to 2R
     WEAK_PARTIAL_R: float = 1.0
-    MEDIUM_PARTIAL_R: float = 1.2
-    STRONG_PARTIAL_R: float = 1.5
+    MEDIUM_PARTIAL_R: float = 1.0
+    STRONG_PARTIAL_R: float = 1.0
 
     SL_MOVE_WEAK_TO_R: float = 0.0  # BE = 0R
     SL_MOVE_MEDIUM_TO_R: float = 0.0  # BE = 0R
-    SL_MOVE_STRONG_TO_R: float = 0.3
+    SL_MOVE_STRONG_TO_R: float = 0.0  # BE = 0R
 
     # Final target is always 2R
     FINAL_TP_R: float = 2
@@ -233,4 +233,3 @@ def build_settings() -> Settings:
 
 # Public settings object used by the rest of the project.
 settings: Settings = build_settings()
-
