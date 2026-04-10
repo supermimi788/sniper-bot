@@ -160,7 +160,10 @@ class Settings:
     SCORE_REJECTION: int = 2
     SCORE_CONFIRMATION: int = 1
     SCORE_RR: int = 2
-    SCORE_MIN_TO_ENTER: int = 4
+    # Keep overall quality high:
+    # - setup construction allows one micro trigger to be missing
+    # - minimum score remains high so only strong-confluence setups are tradable
+    SCORE_MIN_TO_ENTER: int = 10
 
     # ----------------------------
     # Risk limits / session controls

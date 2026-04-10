@@ -82,6 +82,35 @@ def _bearish_confirmation(confirmation: Candle, rejection: Candle) -> bool:
     return (confirmation.high <= rejection.high) and (confirmation.low <= rejection.low)
 
 
+def _strong_bullish_rejection(rejection: Candle, support_zone: Zone) -> bool:
+    # Extra trigger when sweep/confirmation is not perfect:
+    # require a decisive bullish reclaim above zone center.
+    candle_range = rejection.high - rejection.low
+    if candle_range <= 0:
+        return False
+    body = abs(rejection.close - rejection.open)
+    body_strength = body / candle_range
+    return (
+        rejection.close > rejection.open
+        and rejection.close > support_zone.center
+        and body_strength >= 0.45
+    )
+
+
+def _strong_bearish_rejection(rejection: Candle, resistance_zone: Zone) -> bool:
+    # Mirror rule for shorts: decisive bearish reclaim below zone center.
+    candle_range = rejection.high - rejection.low
+    if candle_range <= 0:
+        return False
+    body = abs(rejection.close - rejection.open)
+    body_strength = body / candle_range
+    return (
+        rejection.close < rejection.open
+        and rejection.close < resistance_zone.center
+        and body_strength >= 0.45
+    )
+
+
 def build_long_setup(candles_15m: List[Candle], bias: Bias4H, context: Context1H) -> Optional[EntrySetup]:
     if len(candles_15m) < 3:
         return None
@@ -103,8 +132,13 @@ def build_long_setup(candles_15m: List[Candle], bias: Bias4H, context: Context1H
     rejection_ok = zone_ok and _bullish_rejection(rejection, support_zone)
 
     confirmation_ok = _bullish_confirmation(confirmation, rejection)
+    strong_rejection_ok = zone_ok and _strong_bullish_rejection(rejection, support_zone)
 
-    if not (zone_ok and sweep_ok and rejection_ok and confirmation_ok):
+    # More active but still selective:
+    # - always require zone touch + rejection
+    # - require at least one trigger:
+    #   sweep OR continuation candle OR decisive zone reclaim
+    if not (zone_ok and rejection_ok and (sweep_ok or confirmation_ok or strong_rejection_ok)):
         return None
 
     entry_price = confirmation.close
@@ -150,8 +184,13 @@ def build_short_setup(candles_15m: List[Candle], bias: Bias4H, context: Context1
 
     rejection_ok = zone_ok and _bearish_rejection(rejection, resistance_zone)
     confirmation_ok = _bearish_confirmation(confirmation, rejection)
+    strong_rejection_ok = zone_ok and _strong_bearish_rejection(rejection, resistance_zone)
 
-    if not (zone_ok and sweep_ok and rejection_ok and confirmation_ok):
+    # More active but still selective:
+    # - always require zone touch + rejection
+    # - require at least one trigger:
+    #   sweep OR continuation candle OR decisive zone reclaim
+    if not (zone_ok and rejection_ok and (sweep_ok or confirmation_ok or strong_rejection_ok)):
         return None
 
     entry_price = confirmation.close
@@ -175,4 +214,3 @@ def build_short_setup(candles_15m: List[Candle], bias: Bias4H, context: Context1
         confirmation_ok=confirmation_ok,
         rr_ok=rr_ok,
     )
-
