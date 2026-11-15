@@ -30,6 +30,7 @@ class PaperTrade:
     # Adaptive partial TP (set after momentum classification)
     partial_tp_price: Optional[float]
     final_tp_price: float
+    pending_sl_move_price: Optional[float] = None
 
     # Process tracking
     last_processed_ts_ms: Optional[int] = None
@@ -220,22 +221,12 @@ class PaperAccount:
 
         trade.partial_tp_price = self.tp_price_from_r(trade.entry_price, trade.side, r_mult=partial_r)
 
-        # Move SL after classification.
+        # Prepare SL move target, but only execute it once partial TP is actually hit.
         if sl_move_r != 0.0:
-            new_sl = self.tp_price_from_r(trade.entry_price, trade.side, r_mult=sl_move_r)
-            self.set_sl_move(trade_id=trade.trade_id, new_sl_price=new_sl)
+            trade.pending_sl_move_price = self.tp_price_from_r(trade.entry_price, trade.side, r_mult=sl_move_r)
         else:
             # BE means SL at entry.
-            self.set_sl_move(trade_id=trade.trade_id, new_sl_price=trade.entry_price)
-            self._emit_event(
-                trade=trade,
-                event_type="sl_moved_to_be",
-                qty=trade.qty_remaining,
-                pnl_usdt=0.0,
-                exit_price=None,
-                tp_price=trade.partial_tp_price,
-                reason="sl_moved_to_be",
-            )
+            trade.pending_sl_move_price = trade.entry_price
 
     @staticmethod
     def _r_mult_from_favorable_move(entry_price: float, side: str, favorable_high: float, favorable_low: float) -> float:
@@ -390,6 +381,20 @@ class PaperAccount:
             reason="partial_tp_hit",
         )
 
+        if trade.pending_sl_move_price is not None and not trade.closed:
+            self.set_sl_move(trade_id=trade.trade_id, new_sl_price=trade.pending_sl_move_price)
+            moved_to_be = abs(trade.pending_sl_move_price - trade.entry_price) <= (trade.entry_price * 1e-8)
+            self._emit_event(
+                trade=trade,
+                event_type="sl_moved_to_be" if moved_to_be else "sl_moved",
+                qty=trade.qty_remaining,
+                pnl_usdt=0.0,
+                exit_price=None,
+                tp_price=trade.pending_sl_move_price,
+                reason="sl_moved_to_be" if moved_to_be else "sl_moved_after_partial",
+            )
+            trade.pending_sl_move_price = None
+
     def _close_trade(self, trade: PaperTrade, exit_price: float, qty_to_close: float, reason: str) -> None:
         if qty_to_close <= 0:
             trade.closed = True
@@ -451,4 +456,3 @@ class PaperAccount:
             if trade is not None and trade.pair == pair and not trade.closed:
                 return True
         return False
-
